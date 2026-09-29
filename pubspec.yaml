@@ -81,6 +81,12 @@ dev_dependencies:
   analyzer: ^10.2.0
   video_player_platform_interface: ^6.9.0
 
+dependency_overrides:
+  # 桌面音频后端补丁：曲尾（EOF/seek 到末尾）mpv 解码器错误日志被 media_kit
+  # 升级为致命错误 → 播完一首被判成播放失败、无法自动切歌。本地修此问题。
+  just_audio_media_kit:
+    path: third_party/just_audio_media_kit
+
 flutter:
   uses-material-design: true
   assets:
