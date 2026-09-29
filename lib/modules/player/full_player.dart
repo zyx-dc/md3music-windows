@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/services.dart';
 import 'package:m3e_core/m3e_core.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -66,6 +67,11 @@ import '../../widgets/spectrum_background.dart';
 import 'car_mode_exit.dart';
 import 'dlna_cast_sheet.dart';
 import 'full_player_route.dart';
+
+/// 桌面平台（Windows/Linux/macOS）标记：桌面端在顶栏显式提供音量按钮
+/// （移动端沿用「长按音质徽章」呼出音量，见 [_FullPlayerPageState._showVolumeDialog]）。
+final bool _isDesktopPlatform =
+    Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
 /// 预加载封面图片到磁盘缓存，防止切换时白屏
 void _preloadArtwork(String? url) {
@@ -2537,35 +2543,55 @@ class _FullPlayerState extends State<FullPlayer>
             playerProvider.next();
           },
         ),
-        // 右端：收藏
+        // 右端：桌面端音量滑块 + 收藏（音量仅桌面、非车机面板时显示）
         Expanded(
           child: Align(
             alignment: Alignment.centerRight,
-            child: _buildEdgeAction(
-              icon: isFavorited ? Icons.favorite : Icons.favorite_border,
-              color: isFavorited
-                  ? colorScheme.error
-                  : colorScheme.onSurfaceVariant,
-              onTap: song == null
-                  ? null
-                  : () {
-                      if (isFavorited) {
-                        AppHaptics.click();
-                      } else {
-                        AppHaptics.heavy();
-                      }
-                      if (isOnline) {
-                        context.read<FavoritesProvider>().toggleFavorite(song);
-                      } else {
-                        context.read<LocalFavoritesProvider>().toggleFavorite(
-                          song.id,
-                        );
-                      }
-                    },
-              // 长按：在线歌曲弹出 AI 推荐歌曲面板
-              onLongPress: song != null && isOnline
-                  ? () => showAiRecommendSheet(context, song)
-                  : null,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final showVolume = _isDesktopPlatform && !widget.dockMode;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (showVolume)
+                      _buildVolumeControl(
+                        playerProvider,
+                        // 侧边空间不足时退化为图标（点击弹对话框），避免窄窗口溢出
+                        showSlider: constraints.maxWidth >= 220,
+                      ),
+                    _buildEdgeAction(
+                      icon: isFavorited
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: isFavorited
+                          ? colorScheme.error
+                          : colorScheme.onSurfaceVariant,
+                      onTap: song == null
+                          ? null
+                          : () {
+                              if (isFavorited) {
+                                AppHaptics.click();
+                              } else {
+                                AppHaptics.heavy();
+                              }
+                              if (isOnline) {
+                                context.read<FavoritesProvider>().toggleFavorite(
+                                  song,
+                                );
+                              } else {
+                                context.read<LocalFavoritesProvider>().toggleFavorite(
+                                  song.id,
+                                );
+                              }
+                            },
+                      // 长按：在线歌曲弹出 AI 推荐歌曲面板
+                      onLongPress: song != null && isOnline
+                          ? () => showAiRecommendSheet(context, song)
+                          : null,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -2737,6 +2763,76 @@ class _FullPlayerState extends State<FullPlayer>
       // 吸附回原 tab：清掉 offset 余量，避免指示线卡在两图标之间
       _tabController.offset = 0;
     }
+  }
+
+  /// 桌面端音量控件：喇叭图标 + 可拖动滑块 + 百分比（贴合全局 SliderTheme）。
+  /// [showSlider] 为 false（窄窗口）时退化为图标：点击弹出音量对话框。
+  /// 移动端不显示本控件（沿用「长按音质徽章」呼出音量）。
+  Widget _buildVolumeControl(
+    PlayerProvider playerProvider, {
+    bool showSlider = true,
+  }) {
+    final volume = playerProvider.volume;
+    final muted = volume <= 0;
+    final icon = muted
+        ? Icons.volume_off
+        : volume < 0.5
+        ? Icons.volume_down
+        : Icons.volume_up;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Listener(
+      // 滚轮微调：桌面常见交互，步进 ±5%
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent) {
+          final step = event.scrollDelta.dy > 0 ? -0.05 : 0.05;
+          playerProvider.setVolume(
+            (playerProvider.volume + step).clamp(0.0, 1.0),
+          );
+        }
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(icon),
+            iconSize: 20,
+            visualDensity: VisualDensity.compact,
+            tooltip: showSlider
+                ? (muted ? '取消静音' : '静音')
+                : '音量（滚轮可调）',
+            onPressed: showSlider
+                ? () => playerProvider.setVolume(muted ? 1.0 : 0.0)
+                : () => _showVolumeDialog(playerProvider),
+          ),
+          if (showSlider) ...[
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: SizedBox(
+                width: 96,
+                child: Slider(
+                  value: volume,
+                  onChanged: (value) => playerProvider.setVolume(value),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 34,
+              child: Text(
+                '${(volume * 100).round()}%',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   // MD3E v2: 音量调节改为右上角长按音质徽章呼出。
