@@ -42,6 +42,8 @@ dependencies:
   material_color_utilities: ^0.13.0
   audio_metadata_reader: ^1.4.1
   video_player: ^2.9.2
+  # Windows 的 video_player 实现（Media Foundation）：MV/视频在桌面端播放
+  video_player_win: ^3.3.0
   chewie: ^1.8.5
   # MV 弹幕渲染层：CustomPainter 直绘，纯 Dart（无原生代码，不影响 Android 打包链路）
   # MIT 许可，与本项目 AGPL-3.0 兼容
