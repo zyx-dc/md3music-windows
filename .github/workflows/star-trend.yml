@@ -12,10 +12,8 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout public branch
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: rust-local-force
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -38,4 +36,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add assets/star-trend.svg assets/star-history.json
           git commit -m "docs: update 90-day GitHub Star trend"
-          git push origin HEAD:rust-local-force
+          git push

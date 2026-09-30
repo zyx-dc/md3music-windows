@@ -101,7 +101,9 @@ class MainActivity : FlutterActivity() {
                 it.register(engine)
                 usbAudioPlugin = it
             }
-            MetadataWriterPlugin().register(engine)
+            // TODO(metadata-writer): MetadataWriterPlugin 在仓库历史中不存在，此处悬空引用会导致
+            // :app:compileStandardReleaseKotlin 编译失败（Unresolved reference 'MetadataWriterPlugin'）。
+            // 待元数据写回插件实现后再恢复 register 调用。
             ExternalEditorPlugin(context).register(engine)
             DiagnosticLogPlugin().register(engine)
         }
