@@ -287,6 +287,23 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # GitHub 会把 Release 资产名中的非 ASCII 字符清洗成 '.'，使
+      # 「MD3音乐-<ver>-随身听兼容版-64位.apk」与「MD3音乐-<ver>-标准版-64位.apk」
+      # 清洗后变成同一个资产名（均为 MD3.-<ver>-.-64.apk），上传时报
+      # 404 update-a-release-asset，且随身听包永远发不出去。
+      # 仅在发布前给随身听包追加 ASCII 后缀消歧，不改动本地打包脚本的命名规则。
+      - name: Disambiguate Apple Music APK name for release
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          apk_dir="build/app/outputs/flutter-apk"
+          src="$apk_dir/MD3音乐-${VER}-随身听兼容版-64位.apk"
+          dst="$apk_dir/MD3音乐-${VER}-随身听兼容版-64位-applemusic.apk"
+          if [[ -f "$src" ]]; then
+            mv "$src" "$dst"
+            echo "已重命名：$(basename "$dst")"
+          fi
+
       # 自动创建 Release 并上传 APK（仅 push 到 main/master 时）
       - name: Create CI Release
         if: github.event_name == 'push'
@@ -306,7 +323,7 @@ jobs:
             - **MD3音乐-${{ env.VER }}-3D封面版-64位.apk** — 内置 3D 深度封面（体积更大；无此文件表示本次未构建）
             - **MD3音乐-${{ env.VER }}-标准版-32位.apk** — 较旧的 32 位设备
             - **MD3音乐-${{ env.VER }}-标准版-模拟器.apk** — Android 模拟器
-            - **MD3音乐-${{ env.VER }}-随身听兼容版-64位.apk** — Vivo 原子随身听兼容包（包名 `com.apple.android.music`，不含 3D 封面）
+            - **MD3音乐-${{ env.VER }}-随身听兼容版-64位-applemusic.apk** — Vivo 原子随身听兼容包（包名 `com.apple.android.music`，不含 3D 封面）
 
             > 此为 CI 自动构建，非正式发布版本。
           prerelease: true
