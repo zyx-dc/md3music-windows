@@ -1,10 +1,5 @@
 [
   {
-    "date": "2026-08-23",
-    "stars": 209,
-    "daily_growth": 5
-  },
-  {
     "date": "2026-08-24",
     "stars": 215,
     "daily_growth": 6
@@ -448,5 +443,10 @@
     "date": "2026-11-20",
     "stars": 1506,
     "daily_growth": 11
+  },
+  {
+    "date": "2026-11-21",
+    "stars": 1508,
+    "daily_growth": 2
   }
 ]
